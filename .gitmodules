@@ -1,0 +1,3 @@
+[submodule "src/bmper"]
+	path = src/bmper
+	url = https://github.com/ca2longoria/bmper.git
