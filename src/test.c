@@ -3,7 +3,7 @@
 #include <stdlib.h>
 
 #include "dgrid.h"
-#include "bmper/build/bmper.h"
+#include "bmper.h"
 
 int main(int argc, char** argv) {
 	

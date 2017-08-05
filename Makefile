@@ -9,7 +9,9 @@ clean:
 
 compile:
 	-mkdir build
-	$(CC) src/test.c -o build/test
+	cp src/*.c src/*.h build/
+	cp src/bmper/build/bmper.h build/
+	$(CC) build/test.c -o build/test
 
 subs: bmper
 

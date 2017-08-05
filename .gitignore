@@ -1,5 +1,6 @@
-# vim
+# local
 *.sw?
+build
 
 # Prerequisites
 *.d
