@@ -150,6 +150,8 @@ dgrid_config* dgrid_config_free(
 
 #include <stdio.h>
 
+//#define DEBUG
+
 void dgrid_process_values(dgrid* dg, dgrid_config* conf, void* values) {
 	if (!values)
 		return;
@@ -160,13 +162,17 @@ void dgrid_process_values(dgrid* dg, dgrid_config* conf, void* values) {
 	int paircount=0;
 	// ASSUME: values is zero-ended.
 	//while (*values) {
+#ifdef DEBUG
 		printf("value: %x\n",values); fflush(stdout);
+#endif
 		pairs = conf->tovpairs(values,&paircount,conf);
 		todel_pairs = pairs;
 		// ASSUME: another zero-ended array.
 		while (paircount-- > 0) {
+#ifdef DEBUG
 			printf("point C.%i: %i %i\n",
 				paircount,(*pairs).x,(*pairs).y); fflush(stdout);
+#endif
 			conf->translate((int*)(*pairs).v,dg); // .v is a v[2], so pointer or not?
 			
 			// Apply perhaps to specific dgrid grid object, already extracted with
@@ -184,21 +190,31 @@ void dgrid_process_values(dgrid* dg, dgrid_config* conf, void* values) {
 			
 			if (pairs->val && conf->free_vpair_val)
 				conf->free_vpair_val(pairs->val, conf->free_vpair_val_flags);
+#ifdef DEBUG
 			printf("  end C\n");
+#endif
 			pairs++;
 		}
+#ifdef DEBUG
 		printf("point D: %x %x\n",
 			conf->free_values,
 			conf->free_values_flags); fflush(stdout);
+#endif
 		if (values && conf->free_values)
 			conf->free_values(values, conf->free_values_flags);
+#ifdef DEBUG
 		printf("point D.5\n"); fflush(stdout);
+#endif
 		if (todel_pairs)
 			free(todel_pairs);
+#ifdef DEBUG
 		printf("point E\n"); fflush(stdout);
+#endif
 	//	values++;
 	//}
+#ifdef DEBUG
 	printf("point F\n"); fflush(stdout);
+#endif
 	// ASSUME: values is to be freed.  Or don't.  Or do.
 	//free(todel);
 	//printf("point G\n"); fflush(stdout);
