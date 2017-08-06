@@ -1,6 +1,7 @@
 
 CC := gcc
 OPTS := -02
+PULL :=
 
 all: clean subs compile
 
@@ -17,7 +18,10 @@ subs: bmper
 
 bmper:
 	$(MAKE) -C src/bmper clean
-	$(MAKE) -C src/bmper
+	$(MAKE) -C src/bmper $(PULL) all
+
+subpull:
+	$(eval PULL := pull)
 
 test:
 	build/test

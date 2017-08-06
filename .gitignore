@@ -1,5 +1,6 @@
 # local
 *.sw?
+*.bmp
 build
 
 # Prerequisites
