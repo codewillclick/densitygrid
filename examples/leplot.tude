@@ -1,0 +1,16 @@
+
+[source:thang.csv]
+python thang.py 0,0,100,80 500000
+
+[plot:../build/bmplot] <- thang.csv,(@+0)
+skip 1
+pipeline n.int del p.int t.xy ii
+render bmp.black c.gray256i.n
+plot [0,0,100,80] thang.csv @x,@y
+
+[plot:../build/bmplot] <- thang.csv,(@+0)
+skip 1
+pipeline n.int del p.int t.xy ii
+render bmp.black c.gray256i
+plot [0,0,100,80] thang.csv @x,@y
+
