@@ -43,12 +43,14 @@ dgrid_frame* init_dgrid_frame(dgrid_frame* f, int x, int y, int w, int h) {
 struct _dgrid;
 struct _dgrid_config;
 
-typedef void(*func_coord_translation)(int*,struct _dgrid*);
-typedef void(*func_value_interact)(void*,void*);
-typedef valpair*(*func_value_to_pairs)(void*,int*,struct _dgrid_config*);
-
 typedef void*(*func_0)();
 typedef void(*del_func)(void*,int);
+
+typedef valpair*(*func_value_to_pairs)(void*,int*,struct _dgrid_config*);
+typedef void(*func_coord_translation)(int*,struct _dgrid*);
+typedef void(*func_value_interact)(void*,void*);
+
+typedef void(*func_dgrid_iterator_callback)(int,int,void*,void*);
 
 
 // { dgrid
@@ -63,6 +65,7 @@ typedef struct _dgrid {
 
 dgrid* init_dgrid(dgrid* dg, dgrid_frame* frame,
 		func_0 new_cell, del_func del_cell, int del_cell_flags) {
+	//printf("Dew it 0: %x, %i %i %i %i\n",frame,frame->x,frame->y,frame->w,frame->h); fflush(stdout);
 	dg->frame = *frame;
 	dg->new_cell = new_cell;
 	dg->del_cell = del_cell;
@@ -86,8 +89,9 @@ dgrid* init_dgrid(dgrid* dg, dgrid_frame* frame,
 dgrid* init_dgrid2(dgrid* dg, int x, int y, int w, int h,
 		func_0 new_cell, del_func del_cell, int del_cell_flags) {
 	dgrid_frame f;
-	return init_dgrid(dg, init_dgrid_frame(&f,x,y,w,h),
+	init_dgrid(dg, init_dgrid_frame(&f,x,y,w,h),
 		new_cell,del_cell,del_cell_flags);
+	return dg;
 }
 
 void del_dgrid(dgrid* dg, int del_flags) {
@@ -104,6 +108,19 @@ void del_dgrid(dgrid* dg, int del_flags) {
 		free(dg->rows);
 	if (del_flags & DEL_STRUCT)
 		free(dg);
+}
+
+void dgrid_iterate_values(
+		dgrid* dg, func_dgrid_iterator_callback call, void* params) {
+	int i,j;
+	void* cell;
+	for (i=0; i < dg->frame.h; ++i) {
+		for (j=0; j < dg->frame.w; ++j) {
+			cell = dg->rows[i][j];
+			if (cell)
+				call(j,i,cell,params);
+		}	
+	}
 }
 // }
 

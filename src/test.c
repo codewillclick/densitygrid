@@ -78,6 +78,10 @@ void act(void* cell, void* val) {
 	int* p = (int*)cell;
 	*p += *(int*)val;
 }
+void iter_callback_bmp_white(int x, int y, void* val, void* params) {
+	BMP24File* bmp = (BMP24File*)params;
+	bmp->pr[y][x] = pix24_int(0xffffff);
+}
 // }
 
 int main(int argc, char** argv) {
@@ -115,6 +119,7 @@ int main(int argc, char** argv) {
 	BMP24File_fill(&bmp,pix24_int(0x303030));
 	
 	// TODO: A callback for cell iteration would be nice.
+	/*
 	int i,j,v;
 	int* p;
 	for (i=0; i < dg.frame.h; ++i) {
@@ -127,6 +132,8 @@ int main(int argc, char** argv) {
 		}
 		printf("\n");
 	}
+	// */
+	dgrid_iterate_values(&dg, iter_callback_bmp_white ,&bmp);
 	
 	printf("point X\n"); fflush(stdout);
 	FILE* bf = fopen("output.bmp","wb");

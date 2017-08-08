@@ -1,6 +1,8 @@
 # local
 *.sw?
 *.bmp
+*.tude
+*.csv
 build
 
 # Prerequisites

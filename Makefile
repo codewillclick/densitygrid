@@ -13,6 +13,7 @@ compile:
 	cp src/*.c src/*.h build/
 	cp src/bmper/build/bmper.h build/
 	$(CC) build/test.c -o build/test
+	$(CC) build/bmplot.c -o build/bmplot
 
 subs: bmper
 
