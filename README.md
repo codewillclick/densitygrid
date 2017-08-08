@@ -4,7 +4,7 @@ Density grid for plotting massive amounts of points, written in C.
 ### Setup
 ```
 git clone <url>
-git submodule update --recurse
+git submodule update --recursive
 ```
 ### Design
 
