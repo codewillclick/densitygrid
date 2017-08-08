@@ -1,6 +1,11 @@
 # densitygrid
 Density grid for plotting massive amounts of points, written in C.
 
+### Setup
+```
+git clone <url>
+git submodule update --recurse
+```
 ### Design
 
 Callback functions.
