@@ -301,6 +301,7 @@ typedef struct bmplot_state {
 	char apply_key[16];
 	char render_key[16];
 	char color_key[16];
+	char render_name[257];
 } bmplot_state;
 
 bmplot_state* init_bmplot_state(bmplot_state* s) {
@@ -319,7 +320,6 @@ char* str_bmplot_state(bmplot_state* state, char* buf) {
 
 // { Render functions
 
-#include <unistd.h>
 static int _render_index = 0;
 void render_bmp_black(dgrid* dg, void* bstate, void* param) {
 	bmplot_state* state = (bmplot_state*)bstate;
@@ -335,9 +335,7 @@ void render_bmp_black(dgrid* dg, void* bstate, void* param) {
 	void** args[2] = {(void*)&bmp,(void*)param};
 	dgrid_iterate_values(dg, color, args);
 	
-	char buf[257];
-	sprintf(buf,"render.%i.bmp",getpid());
-	FILE* f = fopen(buf,"wb");
+	FILE* f = fopen(state->render_name,"wb");
 	BMP24File_write(&bmp,f);
 	fclose(f);
 	
@@ -367,8 +365,9 @@ void configure_dgrid(dgrid* dg, dgrid_config* conf, bmplot_state* state) {
 	init_dgrid_config(conf, pairs,trans,apply);
 	dgrid_config_free(conf, DGRID_FREE,0, 0,0);
 }
-	char _1s[] = {' ',0};
-	char* str1(char* s) { _1s[0] = s[0]; return _1s; }
+
+//	char _1s[] = {' ',0};
+//	char* str1(char* s) { _1s[0] = s[0]; return _1s; }
 void evaluate_file(char* path, void* bstate) {
 	bmplot_state* state = (bmplot_state*)bstate;
 	printf("evaluate_file: %s, %x\n",path,bstate); fflush(stdout);
@@ -500,12 +499,15 @@ void command_render(void* a, void* bstate) {
 	
 	printf("command_render\n"); fflush(stdout);
 	
+	char rendernamebuf[257]; rendernamebuf[0]=0;
 	char renderbuf[16]; renderbuf[0]=0;
 	char colorbuf[16]; colorbuf[0]=0;
 	
-	sscanf(line,"%*s%*[ \t]%s%*[ \t]%s%*[ \t]%s",renderbuf,colorbuf);
-	printf("these:\n  %s\n  %s\n",renderbuf,colorbuf);
+	sscanf(line,"%*s%*[ \t]%s%*[ \t]%s%*[ \t]%s%*[ \t]%s",
+		rendernamebuf,renderbuf,colorbuf);
+	printf("these:\n  %s\n  %s\n  %s\n",rendernamebuf,renderbuf,colorbuf);
 	
+	strcpy(state->render_name,rendernamebuf);
 	strcpy(state->render_key,renderbuf);
 	strcpy(state->color_key,colorbuf);
 }
