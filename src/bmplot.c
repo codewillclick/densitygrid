@@ -3,9 +3,13 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <math.h>
 
 #include "dgrid.h"
 #include "bmper.h"
+
+
+#define DEBUG
 
 // { Junk
 char* _tokenize_pbuf[1024]; // single-thread only, I guess
@@ -183,7 +187,8 @@ valpair* pairs_int(void* vals, int* count, dgrid_config* conf) {
 	(*p).x = (int)r[0];
 	(*p).y = (int)r[1];
 	(*p).val = malloc(sizeof(int*));
-	*(int*)(*p).val = 1;
+	*(int*)(*p).val = r[2];
+	printf("pairs_int: %i %i %i %x\n",p->x,p->y,*(int*)p->val,p->val); fflush(stdout);
 	*count = 1;
 	return p;
 }
@@ -212,6 +217,7 @@ void apply_float_int_add(void* cell, void* val) {
 // }
 
 // { Declare a few things
+typedef void(*func_render)(dgrid*,void*,void*);
 // }
 
 // { Bitmap functions
@@ -219,12 +225,90 @@ typedef struct addendum_i {
 	int max;
 	int min;
 } addendum_i;
-typedef void(*func_render)(dgrid*,void*,void*);
+typedef struct addendum_f {
+	float max;
+	float min;
+} addendum_f;
+// Not bitmap really, but putting this here for now.
+void iter_callback_addendum_i(int x, int y, void* val, void* params) {
+	addendum_i* p = (addendum_i*)params;
+	int v = *(int*)val;
+	printf("addendum: (%i,%i) %i\n",x,y,v);
+	p->min = (p->min < v ? p->min : v);
+	p->max = (p->max < v ? v : p->max);
+	printf("no, seriously: (%i,%i) %i\n",x,y,v);
+}
+void iter_callback_addendum_f(int x, int y, void* val, void* params) {
+	addendum_i* p = (addendum_i*)params;
+	float v = *(float*)val;
+	p->min = (p->min < v ? p->min : v);
+	p->max = (p->max < v ? v : p->max);
+}
 
 void render_bmp_black(dgrid* dg, void* bstate, void* params);
 
+#ifndef PI
+#define PI 3.14159265358979323846
+#endif
+pix24 gradient_red(double v) {
+	pix24 p;
+	printf("gradient_red v: %f\n",v); fflush(stdout);
+	p.red   = (v < (1./3) ? (v        < 0 ? 0 :  v        *3*255) : 255);
+	p.green = (v < (2./3) ? (v-(1./3) < 0 ? 0 : (v-(1./3))*3*255) : 255);
+	p.blue  = (v <= 1.    ? (v-(2./3) < 0 ? 0 : (v-(2./3))*3*255) : 255);
+	return p;
+}
+
+pix24 gradient_hsv_wheel(double h, double start, double stop) {
+	h = fmod(h*(stop-start)+start,1.);
+	double v = 1.;
+	double s = 1.;
+	double c = v * s;
+	//double x = c * (1. - fabs(fmod(h*(1./3*PI),2.) - 1.));
+	double x = c * (1. - fabs(fmod(h/(1./6),2.) - 1.));
+	double m = v - c;
+	
+	int n = (int)(h*6);
+	
+	printf("hsvcxm: %f %f %f %f %f %f\n",h,s,v,c,s,m); fflush(stdout);
+	double r,g,b;
+	switch(n) {
+		case 0: r=c; g=x; b=0; break;
+		case 1: r=x; g=c; b=0; break;
+		case 2: r=0; g=c; b=x; break;
+		case 3: r=0; g=x; b=c; break;
+		case 4: r=x; g=0; b=c; break;
+		case 5: r=c; g=0; b=x; break;
+	};
+	return pix24_rgb((int)((r+m)*255),(int)((g+m)*255),(int)(b+m)*255);
+}
+pix24 gradient_hsv_wheel2(double h, double start, double stop) {
+	h = fmod(h*(stop-start)+start,1.);
+	int n = (int)(h*6);
+	double s = 1.;
+	double v = 1.;
+	double f = h * 6 - n;
+	double p = v * (1-s);
+	double q = v * (1 - (f*s));
+	double t = v * (1 - (1-f)*s);
+	double c = v * s;
+	
+	printf("hsfpqtc: %f %f %f %f %f %f %f\n",h,s,f,p,q,t,c); fflush(stdout);
+	double r,g,b;
+	switch(n % 6) {
+		case 0: r=v; g=t; b=p; break;
+		case 1: r=q; g=v; b=p; break;
+		case 2: r=p; g=v; b=t; break;
+		case 3: r=p; g=q; b=v; break;
+		case 4: r=t; g=p; b=v; break;
+		case 5: r=v; g=p; b=q; break;
+	};
+	return pix24_rgb((int)(r*255),(int)(g*255),(int)b*255);
+}
+
 #define params1(a) ((void**)a)[0]
-#define params2(a,i) (((void**)&(((void**)a)[1]))[i])
+//#define params2(a,i) ( ((void**) &( ((void**)a)[1]) )[i] )
+#define params2(a,i) ( ((void**) ((void**)a)[1] )[i] )
 void iter_callback_bmp_white(int x, int y, void* val, void* params) {
 	//printf("iter_callback_bmp_white: %i %i %x %x\n",x,y,val,params);
 	BMP24File* bmp = (BMP24File*)((void**)params)[0];
@@ -241,19 +325,29 @@ void iter_callback_bmp_gray256i_norm(int x, int y, void* val, void* params) {
 	//printf("iter_callback_bmp_white: %i %i %x %x\n",x,y,val,params);
 	addendum_i* ad = (addendum_i*)params2(params,0);
 	int v = *(int*)val;
-	v = (v-ad->min) * (ad->max) / 255 + 1;
+	//printf("ad %x min,max,v: %i, %i, %i\n",ad,ad->min,ad->max,v); fflush(stdout);
+	//v = (v-ad->min) * (ad->max-ad->min) / 255 + 1;
+	v = (v-ad->min) * 255 / (ad->max-ad->min);
 	v &= 0xff;
+	//printf("              v: %i\n",v); fflush(stdout);
 	BMP24File* bmp = (BMP24File*)params1(params);
 	bmp->pr[y][x] = pix24_rgb(v,v,v);
 }
-
-// Not bitmap really, but putting this here for now.
-void iter_callback_addendum_i(int x, int y, void* val, void* params) {
-	addendum_i* p = (addendum_i*)params;
-	int v = *(int*)val;
-	p->min = (p->min < v ? p->min : v);
-	p->max = (p->max < v ? p->max : v);
+void iter_callback_bmp_gradred_i_norm(int x, int y, void* val, void* params) {
+	//printf("iter_callback_bmp_color_i_norm: %i %i %x %x\n",x,y,val,params); fflush(stdout);
+	addendum_i* ad = (addendum_i*)params2(params,0);
+	uint64_t v = (uint64_t)*(unsigned int*)val;
+	BMP24File* bmp = (BMP24File*)params1(params);
+	bmp->pr[y][x] = gradient_red((double)(v-ad->min) / (ad->max-ad->min));
 }
+void iter_callback_bmp_hsv_norm(int x, int y, void* val, void* params) {
+	//printf("iter_callback_bmp_color_i_norm: %i %i %x %x\n",x,y,val,params); fflush(stdout);
+	addendum_i* ad = (addendum_i*)params2(params,0);
+	uint64_t v = (uint64_t)*(unsigned int*)val;
+	BMP24File* bmp = (BMP24File*)params1(params);
+	bmp->pr[y][x] = gradient_hsv_wheel((double)(v-ad->min) / (ad->max-ad->min),0.,1.);
+}
+
 // }
 
 
@@ -276,10 +370,12 @@ void initialize_ftable() {
 		"fi", apply_float_int_add,
 		"ff", apply_float_float_add,
 		
-		"bmp.black", render_bmp_black,
-		"c.white",   iter_callback_bmp_white,
-		"c.gray256i", iter_callback_bmp_gray256i,
+		"bmp.black",    render_bmp_black,
+		"c.white",      iter_callback_bmp_white,
+		"c.gray256i",   iter_callback_bmp_gray256i,
 		"c.gray256i.n", iter_callback_bmp_gray256i_norm,
+		"c.gradred.n",  iter_callback_bmp_gradred_i_norm,
+		"c.hsv.n",      iter_callback_bmp_hsv_norm,
 		0
 	};
 	minitable_add_many(&ftable,p);
@@ -293,7 +389,7 @@ void delete_ftable() {
 typedef struct bmplot_state {
 	int skip_lines;
 	intv4 frame;
-	int cols[2];
+	int cols[3];
 	char cell_key[16];
 	char del_key[16];
 	char pairs_key[16];
@@ -366,8 +462,8 @@ void configure_dgrid(dgrid* dg, dgrid_config* conf, bmplot_state* state) {
 	dgrid_config_free(conf, DGRID_FREE,0, 0,0);
 }
 
-//	char _1s[] = {' ',0};
-//	char* str1(char* s) { _1s[0] = s[0]; return _1s; }
+	char _1s[] = {' ',0};
+	char* str1(char* s) { _1s[0] = s[0]; return _1s; }
 void evaluate_file(char* path, void* bstate) {
 	bmplot_state* state = (bmplot_state*)bstate;
 	printf("evaluate_file: %s, %x\n",path,bstate); fflush(stdout);
@@ -382,7 +478,7 @@ void evaluate_file(char* path, void* bstate) {
 	int skip = state->skip_lines;
 	int count;
 	char** tokens;
-	int vals[2];
+	int vals[3];
 	char line[512000];
 	//char blarg[12888];
 	while (count=fscanf(f,"%[^\n]\n",line) == 1) {
@@ -391,19 +487,22 @@ void evaluate_file(char* path, void* bstate) {
 		//strcpy(blarg,line);
 		//int len = strlen(blarg);
 		tokens = tokenize(line,',');
+		/*
 		int j;
-		//printf("pretok: %s\n",blarg);
-		//printf("tokens: ");
-		//for (j=0; j < len; ++j)
-		//	printf("%i:%s,",j,str1(&tokens[0][j]));
-		//printf("\n");
+		printf("pretok: %s\n",blarg);
+		printf("tokens: ");
+		for (j=0; j < len; ++j)
+			printf("%i:%s,",j,str1(&tokens[0][j]));
+		printf("\n");
 		fflush(stdout);
+		// */
 		// TODO: Do something about this warning.
 		// WARNING: This assumes integers, rather than offering options
-		//   parallel to pipeline selections.
+		//   parallel to pipeline selections, like "int, float, ..."
 		//printf("deese: %s, %s",tokens[state->cols[0]],tokens[state->cols[1]]);
 		vals[0] = atoi(tokens[state->cols[0]]);
 		vals[1] = atoi(tokens[state->cols[1]]);
+		vals[2] = (state->cols[2] < 0 ? 1 : atoi(tokens[state->cols[2]]));
 		// And the processing, at last...
 		//printf("Processing columns %i,%i: %i,%i\n",
 		//	state->cols[0],state->cols[1],vals[0],vals[1]); fflush(stdout);
@@ -413,13 +512,17 @@ void evaluate_file(char* path, void* bstate) {
 	
 	// Special processing...
 	addendum_i ad;
-	ad.max = 0; ad.min = 0;
+	ad.max = 0; ad.min = 0x7fffffff;
 	dgrid_iterate_values(&dg,iter_callback_addendum_i,&ad);
+	printf("and after it all %x: %i, %i\n",&ad,ad.min,ad.max);
+	if (ad.max < ad.min)
+		ad.min = 0;
 	
 	// Now, finally, fiiinally, we render.
 	func_render render = minitable_get(&ftable,state->render_key);
 	if (render) {
 		void* vp[1] = {(void*)&ad};
+		printf("and before it be: %x -> %x \n",vp,&ad);
 		render(&dg,state,vp);
 	}
 	del_dgrid(&dg,0);
@@ -451,10 +554,12 @@ void command_plot(void* a, void* bstate) {
 	sscanf(rangebuf,"[%i,%i,%i,%i]",&x,&y,&w,&h);
 	state->frame = def_intv4_4(x,y,w,h);
 	
-	int c1,c2;
-	sscanf(colbuf,"%i,%i",&c1,&c2);
+	int count;
+	int c1,c2,c3;
+	count = sscanf(colbuf,"%i,%i,%i",&c1,&c2,&c3);
 	state->cols[0]=c1; state->cols[1]=c2;
-	printf("state cols: %i %i\n",state->cols[0],state->cols[1]); fflush(stdout);
+	state->cols[2] = (count == 3 ? c3 : -1);
+	printf("state cols: %i %i %i\n",state->cols[0],state->cols[1],state->cols[2]); fflush(stdout);
 	
 	// Only a file, for now, I guess.
 	evaluate_file(filebuf,state);
