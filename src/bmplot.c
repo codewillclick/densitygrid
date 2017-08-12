@@ -188,7 +188,7 @@ valpair* pairs_int(void* vals, int* count, dgrid_config* conf) {
 	(*p).y = (int)r[1];
 	(*p).val = malloc(sizeof(int*));
 	*(int*)(*p).val = r[2];
-	printf("pairs_int: %i %i %i %x\n",p->x,p->y,*(int*)p->val,p->val); fflush(stdout);
+	//printf("pairs_int: %i %i %i %x\n",p->x,p->y,*(int*)p->val,p->val); fflush(stdout);
 	*count = 1;
 	return p;
 }
@@ -220,6 +220,7 @@ void apply_float_int_add(void* cell, void* val) {
 typedef void(*func_render)(dgrid*,void*,void*);
 // }
 
+
 // { Bitmap functions
 typedef struct addendum_i {
 	int max;
@@ -233,10 +234,10 @@ typedef struct addendum_f {
 void iter_callback_addendum_i(int x, int y, void* val, void* params) {
 	addendum_i* p = (addendum_i*)params;
 	int v = *(int*)val;
-	printf("addendum: (%i,%i) %i\n",x,y,v);
+	//printf("addendum: (%i,%i) %i\n",x,y,v);
 	p->min = (p->min < v ? p->min : v);
 	p->max = (p->max < v ? v : p->max);
-	printf("no, seriously: (%i,%i) %i\n",x,y,v);
+	//printf("no, seriously: (%i,%i) %i\n",x,y,v);
 }
 void iter_callback_addendum_f(int x, int y, void* val, void* params) {
 	addendum_i* p = (addendum_i*)params;
@@ -248,7 +249,8 @@ void iter_callback_addendum_f(int x, int y, void* val, void* params) {
 void render_bmp_black(dgrid* dg, void* bstate, void* params);
 
 #ifndef PI
-#define PI 3.14159265358979323846
+#define PI  3.14159265358979323846
+#define PI2 6.283185307179586
 #endif
 pix24 gradient_red(double v) {
 	pix24 p;
@@ -259,18 +261,19 @@ pix24 gradient_red(double v) {
 	return p;
 }
 
+// { Double to pixel
 pix24 gradient_hsv_wheel(double h, double start, double stop) {
 	h = fmod(h*(stop-start)+start,1.);
+	double hp = h/(1./6);
 	double v = 1.;
 	double s = 1.;
 	double c = v * s;
-	//double x = c * (1. - fabs(fmod(h*(1./3*PI),2.) - 1.));
-	double x = c * (1. - fabs(fmod(h/(1./6),2.) - 1.));
+	double x = c * 1. - fabs(fmod(hp,2.) - 1);
 	double m = v - c;
 	
 	int n = (int)(h*6);
 	
-	printf("hsvcxm: %f %f %f %f %f %f\n",h,s,v,c,s,m); fflush(stdout);
+	//printf("hsvcxm: %f %f %f %f %f %f\n",h,s,v,c,s,m); fflush(stdout);
 	double r,g,b;
 	switch(n) {
 		case 0: r=c; g=x; b=0; break;
@@ -280,7 +283,7 @@ pix24 gradient_hsv_wheel(double h, double start, double stop) {
 		case 4: r=x; g=0; b=c; break;
 		case 5: r=c; g=0; b=x; break;
 	};
-	return pix24_rgb((int)((r+m)*255),(int)((g+m)*255),(int)(b+m)*255);
+	return pix24_rgb((int)((r+m)*255),(int)((g+m)*255),(int)((b+m)*255));
 }
 pix24 gradient_hsv_wheel2(double h, double start, double stop) {
 	h = fmod(h*(stop-start)+start,1.);
@@ -293,7 +296,7 @@ pix24 gradient_hsv_wheel2(double h, double start, double stop) {
 	double t = v * (1 - (1-f)*s);
 	double c = v * s;
 	
-	printf("hsfpqtc: %f %f %f %f %f %f %f\n",h,s,f,p,q,t,c); fflush(stdout);
+	//printf("hsfpqtc: %f %f %f %f %f %f %f\n",h,s,f,p,q,t,c); fflush(stdout);
 	double r,g,b;
 	switch(n % 6) {
 		case 0: r=v; g=t; b=p; break;
@@ -303,8 +306,9 @@ pix24 gradient_hsv_wheel2(double h, double start, double stop) {
 		case 4: r=t; g=p; b=v; break;
 		case 5: r=v; g=p; b=q; break;
 	};
-	return pix24_rgb((int)(r*255),(int)(g*255),(int)b*255);
+	return pix24_rgb((int)(r*255),(int)(g*255),(int)(b*255));
 }
+// }
 
 #define params1(a) ((void**)a)[0]
 //#define params2(a,i) ( ((void**) &( ((void**)a)[1]) )[i] )
@@ -344,13 +348,22 @@ void iter_callback_bmp_hsv_norm(int x, int y, void* val, void* params) {
 	//printf("iter_callback_bmp_color_i_norm: %i %i %x %x\n",x,y,val,params); fflush(stdout);
 	addendum_i* ad = (addendum_i*)params2(params,0);
 	uint64_t v = (uint64_t)*(unsigned int*)val;
+	double h = (v-ad->min) / (double)(ad->max-ad->min);
 	BMP24File* bmp = (BMP24File*)params1(params);
-	bmp->pr[y][x] = gradient_hsv_wheel((double)(v-ad->min) / (ad->max-ad->min),0.,1.);
+	bmp->pr[y][x] = gradient_hsv_wheel(h,0.,1.);
+}
+void iter_callback_bmp_hsv_norm2(int x, int y, void* val, void* params) {
+	//printf("iter_callback_bmp_color_i_norm: %i %i %x %x\n",x,y,val,params); fflush(stdout);
+	addendum_i* ad = (addendum_i*)params2(params,0);
+	uint64_t v = (uint64_t)*(unsigned int*)val;
+	BMP24File* bmp = (BMP24File*)params1(params);
+	bmp->pr[y][x] = gradient_hsv_wheel2((double)(v-ad->min) / (ad->max-ad->min),0.,(5./6));
 }
 
 // }
 
 
+// { Token-to-function table
 static minitable ftable;
 void initialize_ftable() {
 	init_minitable(&ftable,minihash_str,27);
@@ -376,6 +389,7 @@ void initialize_ftable() {
 		"c.gray256i.n", iter_callback_bmp_gray256i_norm,
 		"c.gradred.n",  iter_callback_bmp_gradred_i_norm,
 		"c.hsv.n",      iter_callback_bmp_hsv_norm,
+		"c.hsv2.n",     iter_callback_bmp_hsv_norm2,
 		0
 	};
 	minitable_add_many(&ftable,p);
@@ -383,6 +397,7 @@ void initialize_ftable() {
 void delete_ftable() {
 	del_minitable(&ftable,0);
 }
+// }
 
 
 // { Plot state

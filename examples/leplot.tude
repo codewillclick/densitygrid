@@ -1,5 +1,5 @@
 [source:thang.csv]
-python thang.py 0,0,100,80 500000
+python thang.py 0,0,100,80 250000
 
 [plot:../build/bmplot] <- thang.csv,(@+0)
 skip 1
@@ -13,6 +13,7 @@ pipeline n.int del p.int t.xy ii
 render r.dim.bmp bmp.black c.gradred.n
 plot [0,0,100,80] thang.csv @x,@y
 
+
 [source:thung.csv]
 python thang.py 0,0,100,80 2/100
 
@@ -20,5 +21,11 @@ python thang.py 0,0,100,80 2/100
 skip 1
 pipeline n.int del p.int t.xy ii
 render r.grad.bmp bmp.black c.hsv.n
+plot [0,0,100,80] thung.csv @x,@y,@z
+
+[plot:../build/bmplot] <- thung.csv,(@+0)
+skip 1
+pipeline n.int del p.int t.xy ii
+render r.grad2.bmp bmp.black c.hsv2.n
 plot [0,0,100,80] thung.csv @x,@y,@z
 
